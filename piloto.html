@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8">
+    <title>Cartão Perfurado</title>
+    <style>
+      body {
+        font-family: Arial;
+        display: flex;
+        justify-content: center;
+        margin-top: 50px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(20, 40px);
+        gap: 15px;
+      }
+
+      .cell {
+      width: 50px;
+      height: 50px;
+      border: 2px solid #333;
+      border-radius: 50%; /* ISSO FAZ VIRAR BOLINHA */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+    }
+
+      .perfurado {
+        background-color: black;
+        color: white;
+        transform: scale(0.85);
+      }
+
+    #saida {
+      margin-top: 20px;
+      padding: 10px;
+      background: #222;
+      color: #0f0;
+      min-height: 50px;
+    }
+    </style>
+  </head>
+  <body>
+    <div style="display: flex; justify-content: space-between; padding: 20px;">
+
+      <!-- CONTROLE ESQUERDA -->
+      <div>
+        <select id="modo">
+          <option value="livre">Modo Livre</option>
+          <option value="tabela">Modo Tabela</option>
+          <option value="hollerith">Modo Hollerith</option>
+        </select>
+        <button onclick="mostrarResultado()">Ler Cartão</button>
+
+        <div style="margin-top: 10px; font-size: 14px;">
+          <p><strong>Instruções:</strong></p>
+          <ul>
+            <li>Clique esquerdo para perfurar/desperfurar uma célula.</li>
+            <li>Clique direito para definir o valor (desabilitado no modo Hollerith).</li>
+            <li>Clique em "Ler Cartão" para ver o resultado.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- SAÍDA DIREITA -->
+      <div>
+        <pre id="saida" ></pre>
+      </div>
+
+    </div>
+
+    <div class="grid" id="grid"></div>
+
+    <script>
+      const linhas = 12;
+      const colunas = 20;
+
+      let modo = "livre";
+
+      const gridElement = document.getElementById("grid");
+
+      const seletorModo = document.getElementById("modo");
+
+      seletorModo.addEventListener("change", (e) => {
+        modo = e.target.value;
+
+        if (modo === "hollerith") {
+          limparValores();
+        }
+
+        document.getElementById("saida").textContent = "";
+      });
+
+      function lerLivre() {
+        let resultado = [];
+
+        cartao.forEach(linha => {
+          linha.forEach(celula => {
+            if (celula.perfurado && celula.valor) {
+              resultado.push(celula.valor);
+            }
+          });
+        });
+
+        return resultado.join("");
+      }
+
+      function lerTabela() {
+        let resultado = {};
+
+        for (let j = 0; j < colunas; j++) {
+          for (let i = 0; i < linhas; i++) {
+            const celula = cartao[i][j];
+
+            if (celula.perfurado && celula.valor) {
+              resultado["col_" + j] = celula.valor;
+            }
+          }
+        }
+
+        return JSON.stringify(resultado, null, 2);
+      }
+
+      const tabela = {
+        "0": "A",
+        "1": "B",
+        "01": "C",
+        "2": "D",
+        "3": "E",
+        "23": "F",
+      };
+
+      function lerHollerith() {
+        let texto = "";
+
+        for (let j = 0; j < colunas; j++) {
+          let codigo = "";
+
+          for (let i = 0; i < linhas; i++) {
+            if (cartao[i][j].perfurado) {
+              codigo += i;
+            }
+          }
+
+          texto += tabela[codigo] || ""; // "?" para código desconhecido
+        }
+
+        return texto;
+      }
+          
+      // estrutura de dados
+      const cartao = Array.from({ length: linhas }, () =>
+        Array.from({ length: colunas }, () => ({
+          valor: "",
+          perfurado: false
+        }))
+      );
+
+      function limparValores() {
+        const cells = document.querySelectorAll(".cell");
+
+        for (let i = 0; i < linhas; i++) {
+          for (let j = 0; j < colunas; j++) {
+            cartao[i][j].valor = "";
+          }
+        }
+
+        cells.forEach(cell => {
+          cell.textContent = "";
+        });
+      }
+
+      // cria grid
+      for (let i = 0; i < linhas; i++) {
+        for (let j = 0; j < colunas; j++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+
+          // clique esquerdo → perfurar
+          cell.addEventListener("click", () => {
+            cartao[i][j].perfurado = !cartao[i][j].perfurado;
+            cell.classList.toggle("perfurado");
+          });
+
+          // clique direito → definir valor
+          cell.addEventListener("contextmenu", (e) => {
+            if (modo === "hollerith") {
+              e.preventDefault();
+              return; // bloqueia edição
+            }
+            e.preventDefault();
+
+            const valor = prompt("Digite o valor dessa célula:");
+            if (valor !== null) {
+              cartao[i][j].valor = valor;
+              cell.textContent = valor;
+            }
+          });
+
+          gridElement.appendChild(cell);
+        }
+      }
+
+      function lerCartao() {
+        if (modo === "livre") return lerLivre();
+        if (modo === "tabela") return lerTabela();
+        if (modo === "hollerith") return lerHollerith();
+      }
+
+      function mostrarResultado() {
+        const resultado = lerCartao();
+        document.getElementById("saida").textContent = resultado;
+      }
+    </script>
+
+  </body>
+</html>
