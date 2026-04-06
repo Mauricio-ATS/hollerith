@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8">
+    <title>Cartão Perfurado</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #f4f4f4;
+        display: flex;
+        justify-content: center;
+        margin-top: 50px;
+      }
+
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 10px;
+        width: 350px;
+        text-align: center;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      }
+
+      select, button {
+        margin-top: 15px;
+        padding: 10px;
+        width: 100%;
+      }
+
+      .card {
+        margin-top: 20px;
+        padding: 15px;
+        background: #eee;
+        border-radius: 8px;
+        min-height: 80px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(20, 25px);
+        gap: 5px;
+        justify-content: center;
+        margin: 20px 0;
+      }
+
+      .cell {
+        width: 25px;
+        height: 25px;
+        border: 1px solid #333;
+        border-radius: 50%;
+      }
+
+      .acoes {
+        margin-top: 20px;
+      }
+
+      .acoes button {
+        margin: 5px;
+        padding: 10px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div id="menu" class="container">
+
+      <h1>Simulador de Cartão Perfurado</h1>
+
+      <select id="modo">
+        <option value="">Selecione um modo</option>
+        <option value="livre">Modo Livre</option>
+        <option value="predefinido">Modo Pré-definido</option>
+      </select>
+
+      <div id="descricao" class="card"></div>
+
+      <button id="iniciar" disabled>Iniciar</button>
+
+    </div>
+
+    <div id="sistema" style="display: none;">
+
+      <h2 id="titulo-modo"></h2>
+
+      <p>Cartão atual: <span id="numero-cartao">1</span></p>
+
+      <!-- GRID -->
+      <div id="grid" class="grid"></div>
+
+      <!-- BOTÕES -->
+      <div class="acoes">
+        <button id="addCartao">Adicionar cartão</button>
+        <button id="lerCartoes">Ler cartões perfurados</button>
+      </div>
+
+    </div>
+
+    <script>
+      const seletorModo = document.getElementById("modo");
+      const descricao = document.getElementById("descricao");
+      const botao = document.getElementById("iniciar");
+
+      let modoSelecionado = null;
+
+      seletorModo.addEventListener("change", (e) => {
+        modoSelecionado = e.target.value;
+
+        if (!modoSelecionado) {
+          descricao.textContent = "";
+          botao.disabled = true;
+          return;
+        }
+
+        botao.disabled = false;
+
+        if (modoSelecionado === "livre") {
+          descricao.innerHTML = `
+            <strong>Modo Livre</strong><br>
+            Você pode definir qualquer valor nas células e nas colunas<br>
+            Através do botão direito do mouse.<br>
+            Enquanto para perfurar ou desperfurar uma célula, basta clicar com o botão esquerdo.<br>
+            Totalmente flexível.
+          `;
+        }
+
+        if (modoSelecionado === "predefinido") {
+          descricao.innerHTML = `
+            <strong>Modo Pré-definido</strong><br>
+            Cada coluna representa uma categoria (Sexo, Idade...).<br>
+            Cada linha representa um valor fixo.<br>
+            Para perfurar ou desperfurar uma célula, basta clicar com o botão esquerdo.<br>
+            Inspirado no censo de 1890.
+          `;
+        }
+      });
+
+      const linhas = 12;
+      const colunas = 20;
+
+      const grid = document.getElementById("grid");
+
+      for (let i = 0; i < linhas; i++) {
+        for (let j = 0; j < colunas; j++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+          grid.appendChild(cell);
+        }
+      }
+
+      botao.addEventListener("click", () => {
+        document.getElementById("menu").style.display = "none";
+        document.getElementById("sistema").style.display = "block";
+
+        document.getElementById("titulo-modo").textContent =
+          "Modo: " + modoSelecionado;
+      });
+    </script>
+  </body>
+</html>
