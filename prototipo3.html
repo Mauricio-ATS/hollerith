@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Máquina de Tabular de Hollerith</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f4f3f0;
+      --color-text-primary: #1a1a18;
+      --color-text-secondary: #5f5e5a;
+      --color-border-tertiary: rgba(0,0,0,0.12);
+      --color-border-secondary: rgba(0,0,0,0.25);
+      --border-radius-md: 8px;
+      --border-radius-lg: 12px;
+      --font-sans: system-ui, -apple-system, sans-serif;
+      --font-mono: ui-monospace, 'Courier New', monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #1e1c1a;
+        --color-background-secondary: #2a2826;
+        --color-text-primary: #f0ede8;
+        --color-text-secondary: #a8a59f;
+        --color-border-tertiary: rgba(255,255,255,0.10);
+        --color-border-secondary: rgba(255,255,255,0.22);
+      }
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-background-secondary);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .wrap { max-width: 860px; margin: 0 auto; }
+
+    /* ── Cabeçalho ── */
+    .mhead {
+      text-align: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
+      border-bottom: 0.5px solid var(--color-border-tertiary);
+    }
+    .mtitle { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+    .msub   { font-size: 12px; color: var(--color-text-secondary); margin-top: 3px; }
+
+    /* ── Botões de tema ── */
+    .themes-row {
+      display: flex; gap: 7px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 1.25rem;
+    }
+    .tbtn {
+      padding: 6px 14px;
+      border: 0.5px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      font-size: 13px; cursor: pointer;
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      line-height: 1.3;
+      transition: background .15s;
+    }
+    .tbtn:hover { background: var(--color-background-secondary); }
+    .tbtn.on    { background: #5C4A1A; border-color: #5C4A1A; color: #FAC775; }
+
+    /* ── Área do cartão ── */
+    .card-area {
+      background: #e8dfc8;
+      border: 2px solid #8B6914;
+      border-radius: 4px 14px 4px 4px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1.1rem;
+    }
+    .card-area-label {
+      font-size: 11px; color: #6a5a30;
+      text-transform: uppercase; letter-spacing: .08em;
+      margin-bottom: 8px; font-family: var(--font-mono);
+    }
+
+    .punch-card {
+      background: #f5f0dc;
+      border: 1.5px solid #b8a87a;
+      border-radius: 3px 12px 3px 3px;
+      padding: 10px 12px 10px 8px;
+      position: relative;
+      overflow-x: auto;
+    }
+    .notch {
+      position: absolute; top: 0; right: 0;
+      width: 16px; height: 16px;
+      background: #e8dfc8;
+      border-left: 1.5px solid #b8a87a;
+      border-bottom: 1.5px solid #b8a87a;
+      border-radius: 0 0 0 5px;
+    }
+    .cstripe {
+      height: 11px; background: #d4c8a0; border-radius: 2px;
+      margin-bottom: 9px; display: flex; align-items: center;
+      padding: 0 4px; overflow: hidden;
+    }
+    .cstripe span {
+      font-size: 7px; color: #6a5a30;
+      letter-spacing: .18em; font-family: var(--font-mono); white-space: nowrap;
+    }
+
+    /* ── Tabela do cartão ── */
+    .card-table { width: 100%; border-collapse: collapse; }
+    .card-table th {
+      font-size: 8px; color: #6a5a30;
+      font-family: var(--font-mono);
+      text-align: center; padding: 0 2px 4px; font-weight: 400;
+    }
+    .card-table td.row-label {
+      font-size: 10px; color: #5a4a20;
+      font-family: var(--font-mono);
+      padding: 2px 6px 2px 0; white-space: nowrap;
+    }
+    .card-table td.opt-label {
+      font-size: 9px; color: #7a6535;
+      font-family: var(--font-mono);
+      text-align: center; padding: 2px 2px;
+    }
+    .hole-cell { text-align: center; padding: 2px; }
+    .hole {
+      width: 14px; height: 14px;
+      border-radius: 2px; border: 1px solid #b8a87a;
+      background: #e2d8b0; cursor: pointer;
+      display: inline-block;
+      transition: background .1s, border-color .1s;
+      vertical-align: middle;
+    }
+    .hole:hover  { border-color: #3C3489; background: #ddd0f0; }
+    .hole.pun    { background: #1e1830; border-color: #0f0c1e; }
+    .hole.pun:hover { background: #2e2545; }
+
+    /* ── Botões de ação ── */
+    .act-row {
+      display: flex; gap: 8px; align-items: center;
+      flex-wrap: wrap; margin-top: .9rem;
+    }
+    .btn-tab {
+      padding: 8px 20px; background: #5C4A1A; color: #FAC775;
+      border: none; border-radius: var(--border-radius-md);
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      transition: background .15s, transform .1s;
+    }
+    .btn-tab:hover  { background: #7a6122; }
+    .btn-tab:active { transform: scale(.97); }
+    .btn-clr {
+      padding: 8px 13px; background: transparent;
+      border: 0.5px solid var(--color-border-secondary);
+      border-radius: var(--border-radius-md);
+      font-size: 13px; cursor: pointer;
+      color: var(--color-text-secondary);
+    }
+    .btn-clr:hover { background: var(--color-background-secondary); }
+
+    .feed-msg { font-size: 12px; color: #7a6122; margin-left: auto; display: none; font-weight: 500; }
+    @keyframes fio {
+      0%   { opacity: 0; transform: translateY(4px); }
+      20%  { opacity: 1; transform: translateY(0); }
+      75%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ── Corpo da máquina ── */
+    .machine-body {
+      background: #6B4C11;
+      border: 3px solid #4a3208;
+      border-radius: 6px;
+      padding: 14px 14px 18px;
+      margin-bottom: 1.1rem;
+    }
+    .machine-top-bar {
+      background: #4a3208; border-radius: 4px;
+      padding: 5px 10px; margin-bottom: 12px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .machine-top-label {
+      font-size: 10px; color: #FAC775;
+      letter-spacing: .12em; font-family: var(--font-mono);
+    }
+    .machine-screw {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #3a2608; border: 1px solid #8B6914;
+      display: inline-block; margin: 0 2px;
+    }
+    .screws-row {
+      display: flex; justify-content: space-between;
+      align-items: center; padding: 0 4px; margin-top: 10px;
+    }
+
+    /* ── Painel de contadores ── */
+    .counters-section {
+      background: #5a3e0e;
+      border: 2px solid #3a2608;
+      border-radius: 4px;
+      padding: 10px 10px 12px;
+    }
+    .cat-block { margin-bottom: 14px; }
+    .cat-block:last-child { margin-bottom: 0; }
+    .cat-title {
+      font-size: 10px; color: #FAC775;
+      font-family: var(--font-mono); letter-spacing: .08em;
+      margin-bottom: 7px;
+      border-bottom: 0.5px solid #3a2608; padding-bottom: 4px;
+    }
+    .dials-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    /* ── Disco individual ── */
+    .dial-wrap {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 3px; min-width: 76px;
+    }
+    .dial-num-label {
+      font-size: 8px; color: #8B6914;
+      font-family: var(--font-mono); letter-spacing: .06em;
+    }
+    .dial-canvas-wrap {
+      width: 72px; height: 72px;
+      background: #3a2608; border-radius: 50%;
+      border: 3px solid #8B6914;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dial-opt-label {
+      font-size: 9px; color: #d4b87a;
+      font-family: var(--font-mono);
+      text-align: center; max-width: 76px; line-height: 1.2;
+    }
+
+    .empty-machine {
+      font-size: 12px; color: #d4b87a;
+      text-align: center; padding: 1.5rem;
+      font-family: var(--font-mono);
+    }
+    .no-theme-msg {
+      font-size: 13px; color: var(--color-text-secondary);
+      text-align: center; padding: 2rem;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="mhead">
+    <div class="mtitle">Máquina de Tabular de Hollerith</div>
+    <div class="msub">Cada opção de cada categoria possui seu próprio contador analógico</div>
+  </div>
+
+  <div class="themes-row" id="themes-row"></div>
+
+  <div class="card-area">
+    <div class="card-area-label">Cartão perfurado — marque os furos e alimente a máquina</div>
+    <div id="card-container">
+      <div class="no-theme-msg">Selecione um tema acima para carregar o cartão</div>
+    </div>
+    <div class="act-row">
+      <button class="btn-tab" onclick="tabulate()">Alimentar Cartão na Máquina</button>
+      <button class="btn-clr" onclick="clearCard()">Limpar Furos</button>
+      <span class="feed-msg" id="feed-msg"></span>
+    </div>
+  </div>
+
+  <div class="machine-body">
+    <div class="machine-top-bar">
+      <span class="machine-top-label">HOLLERITH ELECTRIC TABULATING SYSTEM — 1890</span>
+      <span>
+        <span class="machine-screw"></span>
+        <span class="machine-screw"></span>
+        <span class="machine-screw"></span>
+      </span>
+    </div>
+    <div class="counters-section" id="counters-section">
+      <div class="empty-machine">Alimente um cartão para ativar os contadores</div>
+    </div>
+    <div class="screws-row">
+      <span><span class="machine-screw"></span><span class="machine-screw"></span></span>
+      <span style="font-size:8px;color:#8B6914;font-family:var(--font-mono);letter-spacing:.08em;">PAT. 1889 · WASHINGTON D.C.</span>
+      <span><span class="machine-screw"></span><span class="machine-screw"></span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Dados dos temas ── */
+const THEMES = [
+  {
+    id: 'censo', label: 'Censo Populacional',
+    rows: [
+      { label: 'Sexo',              opts: ['Masculino', 'Feminino'] },
+      { label: 'Faixa de idade',    opts: ['0–14', '15–29', '30–44', '45–59', '60+'] },
+      { label: 'Raça / etnia',      opts: ['Branca', 'Parda', 'Preta', 'Amarela', 'Indígena'] },
+      { label: 'Estado civil',      opts: ['Solteiro', 'Casado', 'Viúvo', 'Divorciado'] },
+      { label: 'Profissão',         opts: ['Agrícola', 'Artesão', 'Comerciante', 'Industrial', 'Doméstico', 'Outro'] },
+      { label: 'Naturalidade',      opts: ['Nativo', 'Imigrante'] },
+      { label: 'Grau de instrução', opts: ['Analfabeto', 'Primário', 'Secundário', 'Superior'] },
+      { label: 'Faixa de renda',    opts: ['Muito baixa', 'Baixa', 'Média', 'Alta'] },
+    ]
+  },
+  {
+    id: 'eleicao', label: 'Eleição Geral',
+    rows: [
+      { label: 'Candidato',         opts: ['Candidato A', 'Candidato B', 'Candidato C', 'Candidato D'] },
+      { label: 'Tipo de voto',      opts: ['Válido', 'Nulo', 'Branco', 'Abstenção'] },
+      { label: 'Zona eleitoral',    opts: ['Zona 1', 'Zona 2', 'Zona 3', 'Zona 4', 'Zona 5'] },
+      { label: 'Turno',             opts: ['1º turno', '2º turno'] },
+      { label: 'Sexo do eleitor',   opts: ['Masculino', 'Feminino'] },
+      { label: 'Faixa etária',      opts: ['16–24', '25–44', '45–64', '65+'] },
+    ]
+  },
+  {
+    id: 'saude', label: 'Saúde Pública',
+    rows: [
+      { label: 'Doença',            opts: ['Varíola', 'Febre amarela', 'Tuberculose', 'Cólera', 'Outra'] },
+      { label: 'Situação vacinal',  opts: ['Vacinado', 'Não vacinado'] },
+      { label: 'Desfecho',          opts: ['Curado', 'Óbito', 'Em tratamento'] },
+      { label: 'Sexo',              opts: ['Masculino', 'Feminino'] },
+      { label: 'Faixa etária',      opts: ['0–14', '15–29', '30–59', '60+'] },
+      { label: 'Região',            opts: ['Norte', 'Sul', 'Leste', 'Oeste', 'Centro'] },
+    ]
+  },
+  {
+    id: 'industria', label: 'Indústria',
+    rows: [
+      { label: 'Setor',              opts: ['Têxtil', 'Metalurgia', 'Alimentos', 'Química', 'Madeira', 'Outro'] },
+      { label: 'Porte',              opts: ['Micro', 'Pequena', 'Média', 'Grande'] },
+      { label: 'Destino produção',   opts: ['Mercado interno', 'Exportação'] },
+      { label: 'Tipo de mão de obra',opts: ['Qualificada', 'Não qualificada'] },
+      { label: 'Região',             opts: ['Norte', 'Sul', 'Leste', 'Oeste', 'Centro'] },
+    ]
+  },
+  {
+    id: 'agricultura', label: 'Agricultura',
+    rows: [
+      { label: 'Cultura',            opts: ['Café', 'Açúcar', 'Algodão', 'Borracha', 'Milho', 'Outro'] },
+      { label: 'Regime hídrico',     opts: ['Irrigado', 'Sequeiro'] },
+      { label: 'Destino colheita',   opts: ['Consumo interno', 'Exportação'] },
+      { label: 'Porte da fazenda',   opts: ['Minifúndio', 'Pequena', 'Média', 'Grande'] },
+      { label: 'Região',             opts: ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'] },
+    ]
+  }
+];
+
+/* ── Estado global ── */
+let curTheme  = null;
+let punchState = {};
+let counters   = {};
+
+/* ── Render: botões de tema ── */
+function renderThemes() {
+  const row = document.getElementById('themes-row');
+  row.innerHTML = '';
+  THEMES.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'tbtn' + (curTheme && curTheme.id === t.id ? ' on' : '');
+    b.textContent = t.label;
+    b.onclick = () => selectTheme(t);
+    row.appendChild(b);
+  });
+}
+
+function selectTheme(t) {
+  curTheme   = t;
+  punchState = {};
+  if (!counters[t.id]) {
+    counters[t.id] = {};
+    t.rows.forEach((row, ri) => {
+      counters[t.id][ri] = {};
+      row.opts.forEach((_, oi) => { counters[t.id][ri][oi] = 0; });
+    });
+  }
+  renderThemes();
+  renderCard();
+  renderCounters();
+}
+
+/* ── Render: cartão perfurado ── */
+function renderCard() {
+  const c = document.getElementById('card-container');
+  if (!curTheme) {
+    c.innerHTML = '<div class="no-theme-msg">Selecione um tema acima para carregar o cartão</div>';
+    return;
+  }
+
+  const maxOpts = Math.max(...curTheme.rows.map(r => r.opts.length));
+
+  let html = `<div class="punch-card"><div class="notch"></div>
+    <div class="cstripe"><span>${curTheme.label.toUpperCase()} — HOLLERITH TABULATING MACHINE CO. — 1890</span></div>
+    <table class="card-table">
+    <thead><tr>
+      <th style="text-align:left;padding-bottom:4px;">Categoria</th>`;
+  for (let i = 0; i < maxOpts; i++) html += `<th>${i + 1}</th>`;
+  html += `</tr></thead><tbody>`;
+
+  curTheme.rows.forEach((row, ri) => {
+    /* linha dos furos */
+    html += `<tr><td class="row-label">${row.label}</td>`;
+    row.opts.forEach((opt, oi) => {
+      const k = `${ri}-${oi}`, p = punchState[k] ? ' pun' : '';
+      html += `<td class="hole-cell">
+        <div class="hole${p}" title="${opt}" data-r="${ri}" data-o="${oi}"
+             onclick="toggleHole(${ri},${oi})"></div>
+      </td>`;
+    });
+    for (let x = row.opts.length; x < maxOpts; x++) html += `<td></td>`;
+    html += `</tr>`;
+
+    /* linha dos rótulos das opções */
+    html += `<tr><td></td>`;
+    row.opts.forEach(opt => {
+      const short = opt.length > 8 ? opt.substring(0, 7) + '…' : opt;
+      html += `<td class="opt-label">${short}</td>`;
+    });
+    for (let x = row.opts.length; x < maxOpts; x++) html += `<td></td>`;
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  c.innerHTML = html;
+}
+
+function toggleHole(r, o) {
+  const k = `${r}-${o}`;
+  punchState[k] = !punchState[k];
+  const el = document.querySelector(`.hole[data-r="${r}"][data-o="${o}"]`);
+  if (el) el.classList.toggle('pun', !!punchState[k]);
+}
+
+function clearCard() { punchState = {}; renderCard(); }
+
+/* ── Flash de mensagem ── */
+function flash(text) {
+  const msg = document.getElementById('feed-msg');
+  msg.style.display = 'inline';
+  msg.textContent = text;
+  msg.style.animation = 'none';
+  void msg.offsetWidth;
+  msg.style.animation = 'fio 1.3s ease-out forwards';
+  setTimeout(() => msg.style.display = 'none', 1500);
+}
+
+/* ── Tabulação ── */
+function tabulate() {
+  if (!curTheme) return;
+  const tid = curTheme.id;
+  let any = false;
+  curTheme.rows.forEach((row, ri) => {
+    row.opts.forEach((_, oi) => {
+      if (punchState[`${ri}-${oi}`]) {
+        counters[tid][ri][oi]++;
+        any = true;
+      }
+    });
+  });
+  if (!any) { flash('Nenhum furo!'); return; }
+  flash('Tabulando...');
+  renderCounters();
+  clearCard();
+}
+
+/* ── Desenho do disco analógico ── */
+function drawDial(canvas, value) {
+  const dpr = window.devicePixelRatio || 1;
+  const S   = 66;
+  canvas.width  = S * dpr;
+  canvas.height = S * dpr;
+  canvas.style.width  = S + 'px';
+  canvas.style.height = S + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cx = S / 2, cy = S / 2, R = 30;
+
+  /* face */
+  ctx.fillStyle = '#1a1205';
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+  /* marcações */
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
+    const major = i % 5 === 0;
+    ctx.strokeStyle = '#8B6914'; ctx.lineWidth = major ? 1 : .4;
+    const r1 = major ? R - 5 : R - 3;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    ctx.lineTo(cx + Math.cos(a) * (R - 1), cy + Math.sin(a) * (R - 1));
+    ctx.stroke();
+  }
+
+  /* números 0–9 */
+  ctx.fillStyle = '#d4a843'; ctx.font = 'bold 6px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach((n, i) => {
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    ctx.fillText(n, cx + Math.cos(a) * (R - 11), cy + Math.sin(a) * (R - 11));
+  });
+
+  /* ponteiros */
+  const clamped = Math.min(value, 99);
+  const tens  = Math.floor(clamped / 10);
+  const units = clamped % 10;
+
+  const minAngle = (tens  / 10) * Math.PI * 2 - Math.PI / 2;
+  const secAngle = (units / 10) * Math.PI * 2 - Math.PI / 2;
+
+  function hand(angle, len, w, color) {
+    ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx - Math.cos(angle) * 5, cy - Math.sin(angle) * 5);
+    ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  hand(minAngle, 14, 2,   '#f0f0e0');  /* ponteiro branco = dezenas */
+  hand(secAngle, 20, 1.2, '#D85A30');  /* ponteiro laranja = unidades */
+
+  /* centro */
+  ctx.fillStyle = '#FAC775';
+  ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  /* número digital */
+  ctx.fillStyle = '#8B6914'; ctx.font = '500 6px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(String(clamped).padStart(2, '0'), cx, cy + R - 7);
+}
+
+/* ── Render: contadores ── */
+function renderCounters() {
+  const sec = document.getElementById('counters-section');
+  if (!curTheme) {
+    sec.innerHTML = '<div class="empty-machine">Alimente um cartão para ativar os contadores</div>';
+    return;
+  }
+  const tid = curTheme.id;
+  const themeCounters = counters[tid];
+
+  sec.innerHTML = curTheme.rows.map((row, ri) => {
+    const dials = row.opts.map((opt, oi) => `
+      <div class="dial-wrap">
+        <div class="dial-num-label">nº ${oi + 1}</div>
+        <div class="dial-canvas-wrap"><canvas id="dial-${ri}-${oi}"></canvas></div>
+        <div class="dial-opt-label">${opt}</div>
+      </div>
+    `).join('');
+    return `
+      <div class="cat-block">
+        <div class="cat-title">${row.label}</div>
+        <div class="dials-row">${dials}</div>
+      </div>`;
+  }).join('');
+
+  curTheme.rows.forEach((row, ri) => {
+    row.opts.forEach((_, oi) => {
+      const canvas = document.getElementById(`dial-${ri}-${oi}`);
+      if (canvas) drawDial(canvas, (themeCounters[ri] && themeCounters[ri][oi]) || 0);
+    });
+  });
+}
+
+/* ── Inicialização ── */
+renderThemes();
+</script>
+</body>
+</html>

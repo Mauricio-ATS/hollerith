@@ -1,337 +1,673 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
   <head>
-    <meta charset="UTF-8">
-    <title>Cartão Perfurado</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Máquina de Tabular de Hollerith</title>
     <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --color-background-primary: #ffffff;
+        --color-background-secondary: #f4f3f0;
+        --color-text-primary: #1a1a18;
+        --color-text-secondary: #5f5e5a;
+        --color-border-tertiary: rgba(0,0,0,0.12);
+        --color-border-secondary: rgba(0,0,0,0.25);
+        --border-radius-md: 8px;
+        --border-radius-lg: 12px;
+        --font-sans: system-ui, -apple-system, sans-serif;
+        --font-mono: ui-monospace, 'Courier New', monospace;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --color-background-primary: #1e1c1a;
+          --color-background-secondary: #2a2826;
+          --color-text-primary: #f0ede8;
+          --color-text-secondary: #a8a59f;
+          --color-border-tertiary: rgba(255,255,255,0.10);
+          --color-border-secondary: rgba(255,255,255,0.22);
+        }
+      }
+
       body {
-        font-family: Arial;
-        background: #f4f4f4;
-        display: flex;
-        justify-content: center;
-        margin-top: 50px;
+        font-family: var(--font-sans);
+        background: var(--color-background-secondary);
+        color: var(--color-text-primary);
+        min-height: 100vh;
+        padding: 2rem 1rem;
       }
 
-      .container {
-        background: white;
-        padding: 30px;
-        border-radius: 10px;
-        width: 350px;
+      .wrap { max-width: 900px; margin: 0 auto; }
+
+      /* ── Cabeçalho ── */
+      .mhead {
         text-align: center;
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+        border-bottom: 0.5px solid var(--color-border-tertiary);
+      }
+      .mtitle { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+      .msub   { font-size: 12px; color: var(--color-text-secondary); margin-top: 3px; }
+
+      /* ── Botões de tema ── */
+      .themes-row {
+        display: flex; gap: 7px; flex-wrap: wrap;
+        justify-content: center; margin-bottom: 1.25rem;
+      }
+      .tbtn {
+        padding: 6px 14px;
+        border: 0.5px solid var(--color-border-secondary);
+        border-radius: var(--border-radius-md);
+        font-size: 13px; cursor: pointer;
+        background: var(--color-background-primary);
+        color: var(--color-text-primary);
+        line-height: 1.3;
+        transition: background .15s;
+      }
+      .tbtn:hover { background: var(--color-background-secondary); }
+      .tbtn.on    { background: #5C4A1A; border-color: #5C4A1A; color: #FAC775; }
+
+      /* ── Área do cartão ── */
+      .card-area {
+        background: #e8dfc8;
+        border: 2px solid #8B6914;
+        border-radius: 4px 14px 4px 4px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1.1rem;
+      }
+      .card-area-label {
+        font-size: 11px; color: #6a5a30;
+        text-transform: uppercase; letter-spacing: .08em;
+        margin-bottom: 8px; font-family: var(--font-mono);
       }
 
-      select, button {
-        margin-top: 15px;
-        padding: 10px;
+      .punch-card {
+        background: #f5f0dc;
+        border: 1.5px solid #b8a87a;
+        border-radius: 3px 12px 3px 3px;
+        padding: 10px 12px 10px 8px;
+        position: relative;
+        overflow-x: auto;
+      }
+      .notch {
+        position: absolute; top: 0; right: 0;
+        width: 16px; height: 16px;
+        background: #e8dfc8;
+        border-left: 1.5px solid #b8a87a;
+        border-bottom: 1.5px solid #b8a87a;
+        border-radius: 0 0 0 5px;
+      }
+      .cstripe {
+        height: 11px; background: #d4c8a0; border-radius: 2px;
+        margin-bottom: 9px; display: flex; align-items: center;
+        padding: 0 4px; overflow: hidden;
+      }
+      .cstripe span {
+        font-size: 7px; color: #6a5a30;
+        letter-spacing: .18em; font-family: var(--font-mono); white-space: nowrap;
+      }
+
+      /* ── Tabela do cartão ── */
+      .card-table { border-collapse: collapse; width: 100%; }
+      .card-table th {
+        font-size: 9px; color: #6a5a30;
+        font-family: var(--font-mono);
+        text-align: center; padding: 0 2px 4px; font-weight: 500;
+        min-width: 20px;
+      }
+      .card-table th.row-head { text-align: left; min-width: 110px; }
+      .card-table td.row-label {
+        font-size: 10px; color: #5a4a20;
+        font-family: var(--font-mono);
+        padding: 3px 8px 3px 0; white-space: nowrap;
+      }
+      .hole-cell { text-align: center; padding: 2px; }
+      .hole {
+        width: 13px; height: 13px;
+        border-radius: 2px; border: 1px solid #b8a87a;
+        background: #e2d8b0; cursor: pointer;
+        display: inline-block;
+        transition: background .1s, border-color .1s;
+        vertical-align: middle;
+      }
+      .hole:hover  { border-color: #3C3489; background: #ddd0f0; }
+      .hole.pun    { background: #1e1830; border-color: #0f0c1e; }
+      .hole.pun:hover { background: #2e2545; }
+
+      /* ── Botões de ação ── */
+      .act-row {
+        display: flex; gap: 8px; align-items: center;
+        flex-wrap: wrap; margin-top: .9rem;
+      }
+      .btn-tab {
+        padding: 8px 20px; background: #5C4A1A; color: #FAC775;
+        border: none; border-radius: var(--border-radius-md);
+        font-size: 14px; font-weight: 500; cursor: pointer;
+        transition: background .15s, transform .1s;
+      }
+      .btn-tab:hover  { background: #7a6122; }
+      .btn-tab:active { transform: scale(.97); }
+      .btn-clr {
+        padding: 8px 13px; background: transparent;
+        border: 0.5px solid var(--color-border-secondary);
+        border-radius: var(--border-radius-md);
+        font-size: 13px; cursor: pointer;
+        color: var(--color-text-secondary);
+      }
+      .btn-clr:hover { background: var(--color-background-secondary); }
+
+      .feed-msg { font-size: 12px; color: #7a6122; margin-left: auto; display: none; font-weight: 500; }
+      @keyframes fio {
+        0%   { opacity: 0; transform: translateY(4px); }
+        20%  { opacity: 1; transform: translateY(0); }
+        75%  { opacity: 1; }
+        100% { opacity: 0; }
+      }
+
+      /* ── Corpo da máquina ── */
+      .machine-body {
+        background: #6B4C11;
+        border: 3px solid #4a3208;
+        border-radius: 6px;
+        padding: 14px 14px 18px;
+        margin-bottom: 1.1rem;
+      }
+      .machine-top-bar {
+        background: #4a3208; border-radius: 4px;
+        padding: 5px 10px; margin-bottom: 12px;
+        display: flex; align-items: center; justify-content: space-between;
+      }
+      .machine-top-label {
+        font-size: 10px; color: #FAC775;
+        letter-spacing: .12em; font-family: var(--font-mono);
+      }
+      .machine-screw {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #3a2608; border: 1px solid #8B6914;
+        display: inline-block; margin: 0 2px;
+      }
+      .screws-row {
+        display: flex; justify-content: space-between;
+        align-items: center; padding: 0 4px; margin-top: 10px;
+      }
+
+      /* ── Painel de contadores ── */
+      .counters-section {
+        background: #5a3e0e;
+        border: 2px solid #3a2608;
+        border-radius: 4px;
+        padding: 10px 10px 12px;
+      }
+      .cat-block { margin-bottom: 14px; }
+      .cat-block:last-child { margin-bottom: 0; }
+      .cat-title {
+        font-size: 10px; color: #FAC775;
+        font-family: var(--font-mono); letter-spacing: .08em;
+        margin-bottom: 7px;
+        border-bottom: 0.5px solid #3a2608; padding-bottom: 4px;
+      }
+      .dials-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+      /* ── Disco individual ── */
+      .dial-wrap {
+        display: flex; flex-direction: column;
+        align-items: center; gap: 3px; min-width: 68px;
+      }
+      .dial-num-badge {
+        font-size: 9px; color: #FAC775;
+        font-family: var(--font-mono);
+        background: #3a2608; border: 1px solid #8B6914;
+        border-radius: 3px; padding: 1px 6px;
+      }
+      .dial-canvas-wrap {
+        width: 68px; height: 68px;
+        background: #3a2608; border-radius: 50%;
+        border: 3px solid #8B6914;
+        display: flex; align-items: center; justify-content: center;
+      }
+
+      .empty-machine {
+        font-size: 12px; color: #d4b87a;
+        text-align: center; padding: 1.5rem;
+        font-family: var(--font-mono);
+      }
+      .no-theme-msg {
+        font-size: 13px; color: var(--color-text-secondary);
+        text-align: center; padding: 2rem;
+      }
+
+      /* ── Colinha de referência ── */
+      .cheat-area {
+        margin-bottom: 1.1rem;
+      }
+      .cheat-toggle {
+        display: flex; align-items: center; gap: 8px;
+        cursor: pointer; user-select: none;
+        padding: 7px 12px;
+        background: var(--color-background-primary);
+        border: 0.5px solid var(--color-border-secondary);
+        border-radius: var(--border-radius-md);
+        font-size: 12px; color: var(--color-text-secondary);
+        font-family: var(--font-mono);
         width: 100%;
+        transition: background .15s;
       }
-
-      .card {
-        margin-top: 20px;
-        padding: 15px;
-        background: #eee;
-        border-radius: 8px;
-        min-height: 80px;
+      .cheat-toggle:hover { background: var(--color-background-secondary); }
+      .cheat-toggle .arrow {
+        margin-left: auto; font-size: 10px;
+        transition: transform .2s;
       }
+      .cheat-toggle.open .arrow { transform: rotate(180deg); }
 
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(20, 25px);
-        gap: 5px;
-        justify-content: center;
-        margin: 20px 0;
+      .cheat-panel {
+        display: none;
+        background: #faf7ee;
+        border: 1px solid #c8b87a;
+        border-top: none;
+        border-radius: 0 0 var(--border-radius-md) var(--border-radius-md);
+        padding: 10px 14px 12px;
+        overflow-x: auto;
       }
-
-      .cell {
-        width: 25px;
-        height: 25px;
-        border: 1px solid #333;
-        border-radius: 50%;
+      @media (prefers-color-scheme: dark) {
+        .cheat-panel { background: #2a2418; border-color: #6b5420; }
       }
+      .cheat-panel.open { display: block; }
 
-      .cell.perfurado {
-        background: black;
-        transform: scale(0.8);
+      .cheat-grid {
+        display: flex; flex-direction: column; gap: 10px;
       }
-
-      .acoes {
-        margin-top: 20px;
+      .cheat-row {
+        display: flex; align-items: baseline; gap: 0; flex-wrap: wrap;
       }
-
-      .acoes button {
-        margin: 5px;
-        padding: 10px;
+      .cheat-row-label {
+        font-size: 10px; font-family: var(--font-mono);
+        color: #5a4a20; font-weight: 600;
+        min-width: 130px; padding-right: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
-
-      .info-icon {
-        cursor: pointer;
-        font-size: 14px;
+      @media (prefers-color-scheme: dark) {
+        .cheat-row-label { color: #c8a85a; }
       }
-
-      .info-icon:hover {
-        transform: scale(1.2);
+      .cheat-opts {
+        display: flex; flex-wrap: wrap; gap: 5px;
+      }
+      .cheat-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        background: #ede5c8; border: 1px solid #c8b87a;
+        border-radius: 4px; padding: 2px 7px;
+        font-size: 10px; font-family: var(--font-mono);
+        color: #4a3a10; white-space: nowrap;
+      }
+      @media (prefers-color-scheme: dark) {
+        .cheat-badge { background: #3a3018; border-color: #6b5420; color: #d4b87a; }
+      }
+      .cheat-badge .badge-num {
+        font-weight: 700; color: #7a5a10;
+        font-size: 9px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .cheat-badge .badge-num { color: #FAC775; }
+      }
+      .cheat-badge .badge-sep {
+        color: #b8a87a; font-size: 9px;
+      }
+      .cheat-no-theme {
+        font-size: 12px; color: var(--color-text-secondary);
+        font-family: var(--font-mono); text-align: center; padding: 8px 0;
       }
     </style>
   </head>
   <body>
-
-    <div id="menu" class="container">
-
-      <h1>Simulador de Cartão Perfurado</h1>
-
-      <select id="modo">
-        <option value="">Selecione um modo</option>
-        <option value="livre">Modo Livre</option>
-        <option value="predefinido">Modo Pré-definido</option>
-      </select>
-
-      <div id="descricao" class="card"></div>
-
-      <button id="iniciar" disabled>Iniciar</button>
-
-    </div>
-
-    <div id="sistema" style="display: none;">
-
-      <h2 id="titulo-modo"></h2>
-
-      <p>Cartão atual: <span id="numero-cartao">1</span></p>
-
-      <div id="labels-colunas" style="display: grid; grid-template-columns: repeat(20, 25px); gap: 5px;"></div>
-
-      <!-- GRID -->
-      <div id="grid" class="grid"></div>
-
-      <!-- BOTÕES -->
-      <div class="acoes">
-        <button id="addCartao">Adicionar cartão</button>
-        <button id="lerCartoes">Ler cartões perfurados</button>
+    <div class="wrap">
+      <div class="mhead">
+        <div class="mtitle">Máquina de Tabular de Hollerith</div>
+        <div class="msub">Cartão com 12 colunas numéricas — contador individual por número de cada categoria</div>
       </div>
 
+      <div class="themes-row" id="themes-row"></div>
+
+      <div class="card-area">
+        <div class="card-area-label">Cartão perfurado — marque os furos e alimente a máquina</div>
+        <div id="card-container">
+          <div class="no-theme-msg">Selecione um tema acima para carregar o cartão</div>
+        </div>
+        <div class="act-row">
+          <button class="btn-tab" onclick="tabulate()">Alimentar Cartão na Máquina</button>
+          <button class="btn-clr" onclick="clearCard()">Limpar Furos</button>
+          <span class="feed-msg" id="feed-msg"></span>
+        </div>
+      </div>
+
+      <!-- Colinha de referencia -->
+      <div class="cheat-area">
+        <button class="cheat-toggle" id="cheat-toggle" onclick="toggleCheat()">
+          Colinha -- referencia das colunas para o tema selecionado
+          <span class="arrow">&#9660;</span>
+        </button>
+        <div class="cheat-panel" id="cheat-panel">
+          <div class="cheat-no-theme">Selecione um tema para ver a legenda das colunas</div>
+        </div>
+      </div>
+
+      <div class="machine-body">
+        <div class="machine-top-bar">
+          <span class="machine-top-label">HOLLERITH ELECTRIC TABULATING SYSTEM — 1890</span>
+          <span>
+            <span class="machine-screw"></span>
+            <span class="machine-screw"></span>
+            <span class="machine-screw"></span>
+          </span>
+        </div>
+        <div class="counters-section" id="counters-section">
+          <div class="empty-machine">Alimente um cartão para ativar os contadores</div>
+        </div>
+        <div class="screws-row">
+          <span><span class="machine-screw"></span><span class="machine-screw"></span></span>
+          <span style="font-size:8px;color:#8B6914;font-family:var(--font-mono);letter-spacing:.08em;">PAT. 1889 · WASHINGTON D.C.</span>
+          <span><span class="machine-screw"></span><span class="machine-screw"></span></span>
+        </div>
+      </div>
     </div>
 
     <script>
-      const seletorModo = document.getElementById("modo");
-      const descricao = document.getElementById("descricao");
-      const botao = document.getElementById("iniciar");
+      /* ── Constantes ── */
+      const COLS = 12;
 
-      let modoSelecionado = null;
-
-      seletorModo.addEventListener("change", (e) => {
-        modoSelecionado = e.target.value;
-
-        if (!modoSelecionado) {
-          descricao.textContent = "";
-          botao.disabled = true;
-          return;
+      /* ── Dados dos temas (com opts como colinha) ── */
+      const THEMES = [
+        {
+          id: 'censo', label: 'Censo Populacional',
+          rows: [
+            { label: 'Sexo',              opts: ['Masculino','Feminino'] },
+            { label: 'Faixa de idade',    opts: ['0–14','15–29','30–44','45–59','60+'] },
+            { label: 'Raça / etnia',      opts: ['Branca','Parda','Preta','Amarela','Indígena'] },
+            { label: 'Estado civil',      opts: ['Solteiro','Casado','Viúvo','Divorciado'] },
+            { label: 'Profissão',         opts: ['Agrícola','Artesão','Comerciante','Industrial','Doméstico','Outro'] },
+            { label: 'Naturalidade',      opts: ['Nativo','Imigrante'] },
+            { label: 'Grau de instrução', opts: ['Analfabeto','Primário','Secundário','Superior'] },
+            { label: 'Faixa de renda',    opts: ['Muito baixa','Baixa','Média','Alta'] },
+          ]
+        },
+        {
+          id: 'eleicao', label: 'Eleição Geral',
+          rows: [
+            { label: 'Candidato',         opts: ['Candidato A','Candidato B','Candidato C','Candidato D'] },
+            { label: 'Tipo de voto',      opts: ['Válido','Nulo','Branco','Abstenção'] },
+            { label: 'Zona eleitoral',    opts: ['Zona 1','Zona 2','Zona 3','Zona 4','Zona 5'] },
+            { label: 'Turno',             opts: ['1º turno','2º turno'] },
+            { label: 'Sexo do eleitor',   opts: ['Masculino','Feminino'] },
+            { label: 'Faixa etária',      opts: ['16–24','25–44','45–64','65+'] },
+          ]
+        },
+        {
+          id: 'saude', label: 'Saúde Pública',
+          rows: [
+            { label: 'Doença',            opts: ['Varíola','Febre amarela','Tuberculose','Cólera','Outra'] },
+            { label: 'Situação vacinal',  opts: ['Vacinado','Não vacinado'] },
+            { label: 'Desfecho',          opts: ['Curado','Óbito','Em tratamento'] },
+            { label: 'Sexo',              opts: ['Masculino','Feminino'] },
+            { label: 'Faixa etária',      opts: ['0–14','15–29','30–59','60+'] },
+            { label: 'Região',            opts: ['Norte','Sul','Leste','Oeste','Centro'] },
+          ]
+        },
+        {
+          id: 'industria', label: 'Indústria',
+          rows: [
+            { label: 'Setor',             opts: ['Têxtil','Metalurgia','Alimentos','Química','Madeira','Outro'] },
+            { label: 'Porte',             opts: ['Micro','Pequena','Média','Grande'] },
+            { label: 'Destino produção',  opts: ['Mercado interno','Exportação'] },
+            { label: 'Mão de obra',       opts: ['Qualificada','Não qualificada'] },
+            { label: 'Região',            opts: ['Norte','Sul','Leste','Oeste','Centro'] },
+          ]
+        },
+        {
+          id: 'agricultura', label: 'Agricultura',
+          rows: [
+            { label: 'Cultura',           opts: ['Café','Açúcar','Algodão','Borracha','Milho','Outro'] },
+            { label: 'Regime hídrico',    opts: ['Irrigado','Sequeiro'] },
+            { label: 'Destino colheita',  opts: ['Consumo interno','Exportação'] },
+            { label: 'Porte da fazenda',  opts: ['Minifúndio','Pequena','Média','Grande'] },
+            { label: 'Região',            opts: ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'] },
+          ]
         }
+      ];
 
-        botao.disabled = false;
+      /* ── Estado global ── */
+      let curTheme  = null;
+      let punchState = {};
+      let counters   = {};
 
-        if (modoSelecionado === "livre") {
-          descricao.innerHTML = `
-            <strong>Modo Livre</strong><br>
-            Você pode definir qualquer valor nas células e nas colunas<br>
-            Através do botão direito do mouse.<br>
-            Enquanto para perfurar ou desperfurar uma célula, basta clicar com o botão esquerdo.<br>
-            Totalmente flexível.
-          `;
-        }
-
-        if (modoSelecionado === "predefinido") {
-          descricao.innerHTML = `
-            <strong>Modo Pré-definido</strong><br>
-            Cada coluna representa uma categoria (Sexo, Idade...).<br>
-            Cada linha representa um valor fixo.<br>
-            Para perfurar ou desperfurar uma célula, basta clicar com o botão esquerdo.<br>
-            Inspirado no censo de 1890.
-          `;
-        }
-      });
-
-      const linhas = 12;
-      const colunas = 20;
-
-      const esquema = {
-        0: { nome: "Sexo", valores: ["Masculino", "Feminino"] },
-        1: { nome: "Estado Civil", valores: ["Solteiro", "Casado"] },
-        2: { nome: "Idade", valores: ["0-20", "21-40", "41+"] },
-        3: { nome: "Escolaridade", valores: ["Básica", "Média", "Superior"] }
-      };
-
-      // Array que guarda TODOS os cartões já salvos
-      let listaCartoes = [];
-
-      // Cartão em edição no momento
-      let cartao = novoCartaoEmBranco();
-
-      function novoCartaoEmBranco() {
-        return Array.from({ length: linhas }, () =>
-          Array.from({ length: colunas }, () => ({
-            perfurado: false,
-            valor: ""
-          }))
-        );
-      }
-
-      const grid = document.getElementById("grid");
-
-      function renderizarGrid() {
-        // Limpa o DOM e redesenha as células do cartão atual
-        grid.innerHTML = "";
-
-        for (let i = 0; i < linhas; i++) {
-          for (let j = 0; j < colunas; j++) {
-            const cell = document.createElement("div");
-            cell.classList.add("cell");
-            cell.dataset.linha = i;
-            cell.dataset.coluna = j;
-
-            if (cartao[i][j].perfurado) {
-              cell.classList.add("perfurado");
-            }
-
-            cell.addEventListener("click", () => {
-              alternarFuro(i, j, cell);
-            });
-
-            grid.appendChild(cell);
-          }
-        }
-      }
-
-      function renderizarLabels() {
-        const container = document.getElementById("labels-colunas");
-        container.innerHTML = "";
-
-        for (let j = 0; j < colunas; j++) {
-          const label = document.createElement("div");
-          label.style.textAlign = "center";
-
-          if (esquema[j]) {
-            const info = document.createElement("span");
-            info.textContent = "ℹ️";
-            info.classList.add("info-icon");
-
-            // tooltip nativo
-            info.title = esquema[j].nome;
-
-            label.appendChild(info);
-          }
-
-          container.appendChild(label);
-        }
-      }
-
-      function alternarFuro(i, j, cell) {
-        const jaPerfurado = cartao[i][j].perfurado; // estado ANTES
-
-        if (modoSelecionado === "predefinido") {
-          // limpa coluna inteira no array e visualmente
-          for (let k = 0; k < linhas; k++) {
-            cartao[k][j].perfurado = false;
-          }
-          atualizarColunaVisual(j);
-        }
-
-        // só perfura se não estava perfurado antes (permite "desligar" no predefinido)
-        if (!jaPerfurado) {
-          cartao[i][j].perfurado = true;
-          cell.classList.add("perfurado");
-        }
-      }
-
-      function atualizarColunaVisual(coluna) {
-        document.querySelectorAll(".cell").forEach(cell => {
-          if (parseInt(cell.dataset.coluna) === coluna) {
-            cell.classList.remove("perfurado");
-          }
+      /* ── Render: botões de tema ── */
+      function renderThemes() {
+        const row = document.getElementById('themes-row');
+        row.innerHTML = '';
+        THEMES.forEach(t => {
+          const b = document.createElement('button');
+          b.className = 'tbtn' + (curTheme && curTheme.id === t.id ? ' on' : '');
+          b.textContent = t.label;
+          b.onclick = () => selectTheme(t);
+          row.appendChild(b);
         });
       }
 
-      function lerCartaoPredefinido(cartao) {
-        let resultado = {};
-
-        for (let j = 0; j < colunas; j++) {
-          const campo = esquema[j];
-          if (!campo) continue;
-
-          for (let i = 0; i < linhas; i++) {
-            if (cartao[i][j].perfurado) {
-              resultado[campo.nome] = campo.valores[i];
-            }
-          }
+      function selectTheme(t) {
+        curTheme   = t;
+        punchState = {};
+        if (!counters[t.id]) {
+          counters[t.id] = {};
+          t.rows.forEach((row, ri) => {
+            counters[t.id][ri] = {};
+            for (let c = 0; c < COLS; c++) counters[t.id][ri][c] = 0;
+          });
         }
-
-        return resultado;
+        renderThemes();
+        renderCard();
+        renderCounters();
+        renderCheat();
       }
 
-      // --- ADICIONAR CARTÃO ---
-      document.getElementById("addCartao").addEventListener("click", () => {
-        // Salva uma cópia profunda do cartão atual na lista
-        listaCartoes.push(JSON.parse(JSON.stringify(cartao)));
-
-        // Cria um novo cartão em branco
-        cartao = novoCartaoEmBranco();
-
-        // Atualiza o contador e redesenha
-        const numeroAtual = listaCartoes.length + 1;
-        document.getElementById("numero-cartao").textContent = numeroAtual;
-
-        renderizarGrid();
-
-        console.log(`Cartão ${listaCartoes.length} salvo. Total de cartões: ${listaCartoes.length}`);
-      });
-
-      // --- LER CARTÕES ---
-      document.getElementById("lerCartoes").addEventListener("click", () => {
-
-        // inclui o cartão atual também (se tiver algo)
-        const todos = [...listaCartoes];
-
-        // opcional: incluir o atual se não estiver vazio
-        if (!cartaoEstaVazio(cartao)) {
-          todos.push(cartao);
-        }
-
-        if (todos.length === 0) {
-          console.log("Nenhum cartão para ler.");
+      /* ── Render: cartão perfurado ── */
+      function renderCard() {
+        const cont = document.getElementById('card-container');
+        if (!curTheme) {
+          cont.innerHTML = '<div class="no-theme-msg">Selecione um tema acima para carregar o cartão</div>';
           return;
         }
 
-        console.log("=== RESULTADO DOS CARTÕES ===");
+        let html = `<div class="punch-card"><div class="notch"></div>
+          <div class="cstripe"><span>${curTheme.label.toUpperCase()} — HOLLERITH TABULATING MACHINE CO. — 1890</span></div>
+          <table class="card-table">
+          <thead><tr><th class="row-head">Categoria</th>`;
+        for (let i = 1; i <= COLS; i++) html += `<th>${i}</th>`;
+        html += `</tr></thead><tbody>`;
 
-        todos.forEach((c, index) => {
-          let resultado;
-
-          if (modoSelecionado === "predefinido") {
-            resultado = lerCartaoPredefinido(c);
-          } else {
-            resultado = c; // modo livre (bruto por enquanto)
+        curTheme.rows.forEach((row, ri) => {
+          html += `<tr><td class="row-label">${row.label}</td>`;
+          for (let ci = 0; ci < COLS; ci++) {
+            const k = `${ri}-${ci}`, p = punchState[k] ? ' pun' : '';
+            html += `<td class="hole-cell">
+              <div class="hole${p}" data-r="${ri}" data-c="${ci}"
+                  onclick="toggleHole(${ri},${ci})"></div>
+            </td>`;
           }
-
-          console.log(`Cartão ${index + 1}:`, resultado);
+          html += `</tr>`;
         });
 
-      });
-
-      function cartaoEstaVazio(cartao) {
-        return cartao.every(linha =>
-          linha.every(celula => !celula.perfurado)
-        );
+        html += `</tbody></table></div>`;
+        cont.innerHTML = html;
       }
 
-      botao.addEventListener("click", () => {
-        modoSelecionado = seletorModo.value;
-        document.getElementById("menu").style.display = "none";
-        document.getElementById("sistema").style.display = "block";
-        document.getElementById("titulo-modo").textContent = "Modo: " + modoSelecionado;
-        renderizarGrid();
-        if (modoSelecionado === "predefinido") {
-          renderizarLabels();
+      function toggleHole(r, c) {
+        const k = `${r}-${c}`;
+        punchState[k] = !punchState[k];
+        const el = document.querySelector(`.hole[data-r="${r}"][data-c="${c}"]`);
+        if (el) el.classList.toggle('pun', !!punchState[k]);
+      }
+
+      function clearCard() { punchState = {}; renderCard(); }
+
+      /* ── Flash de mensagem ── */
+      function flash(text) {
+        const msg = document.getElementById('feed-msg');
+        msg.style.display = 'inline';
+        msg.textContent = text;
+        msg.style.animation = 'none';
+        void msg.offsetWidth;
+        msg.style.animation = 'fio 1.3s ease-out forwards';
+        setTimeout(() => msg.style.display = 'none', 1500);
+      }
+
+      /* ── Tabulação ── */
+      function tabulate() {
+        if (!curTheme) return;
+        const tid = curTheme.id;
+        let any = false;
+        curTheme.rows.forEach((row, ri) => {
+          for (let ci = 0; ci < COLS; ci++) {
+            if (punchState[`${ri}-${ci}`]) {
+              if (ci < row.opts.length) {
+                counters[tid][ri][ci]++;
+                any = true;
+              }
+              /* furos além do nº de opções são silenciosamente ignorados */
+            }
+          }
+        });
+        if (!any) { flash('Nenhum furo!'); return; }
+        flash('Tabulando...');
+        renderCounters();
+        clearCard();
+      }
+
+      /* ── Desenho do disco analógico ── */
+      function drawDial(canvas, value) {
+        const dpr = window.devicePixelRatio || 1;
+        const S   = 62;
+        canvas.width  = S * dpr;
+        canvas.height = S * dpr;
+        canvas.style.width  = S + 'px';
+        canvas.style.height = S + 'px';
+
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        const cx = S / 2, cy = S / 2, R = 28;
+
+        /* face */
+        ctx.fillStyle = '#1a1205';
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+
+        /* marcações */
+        for (let i = 0; i < 60; i++) {
+          const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
+          const major = i % 5 === 0;
+          ctx.strokeStyle = '#8B6914'; ctx.lineWidth = major ? 1 : .4;
+          const r1 = major ? R - 5 : R - 3;
+          ctx.beginPath();
+          ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+          ctx.lineTo(cx + Math.cos(a) * (R - 1), cy + Math.sin(a) * (R - 1));
+          ctx.stroke();
         }
-      });
+
+        /* números 0–9 */
+        ctx.fillStyle = '#d4a843'; ctx.font = 'bold 6px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].forEach((n, i) => {
+          const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+          ctx.fillText(n, cx + Math.cos(a) * (R - 10), cy + Math.sin(a) * (R - 10));
+        });
+
+        /* ponteiros */
+        const clamped = Math.min(value, 99);
+        const tens  = Math.floor(clamped / 10);
+        const units = clamped % 10;
+
+        function hand(angle, len, w, color) {
+          ctx.strokeStyle = color; ctx.lineWidth = w; ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(cx - Math.cos(angle) * 5, cy - Math.sin(angle) * 5);
+          ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+          ctx.stroke();
+        }
+        hand((tens  / 10) * Math.PI * 2 - Math.PI / 2, 13, 2,   '#f0f0e0'); /* branco = dezenas */
+        hand((units / 10) * Math.PI * 2 - Math.PI / 2, 19, 1.2, '#D85A30'); /* laranja = unidades */
+
+        /* centro */
+        ctx.fillStyle = '#FAC775';
+        ctx.beginPath(); ctx.arc(cx, cy, 2.5, 0, Math.PI * 2); ctx.fill();
+
+        /* número digital */
+        ctx.fillStyle = '#8B6914'; ctx.font = '500 6px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(String(clamped).padStart(2, '0'), cx, cy + R - 7);
+      }
+
+      /* ── Render: contadores ── */
+      function renderCounters() {
+        const sec = document.getElementById('counters-section');
+        if (!curTheme) {
+          sec.innerHTML = '<div class="empty-machine">Alimente um cartão para ativar os contadores</div>';
+          return;
+        }
+        const tid = curTheme.id;
+        const tc  = counters[tid];
+
+        sec.innerHTML = curTheme.rows.map((row, ri) => {
+          const dials = row.opts.map((opt, ci) => `
+            <div class="dial-wrap">
+              <div class="dial-num-badge">${ci + 1}</div>
+              <div class="dial-canvas-wrap"><canvas id="dial-${ri}-${ci}"></canvas></div>
+              <div class="dial-opt-label">${opt}</div>
+            </div>
+          `).join('');
+          return `
+            <div class="cat-block">
+              <div class="cat-title">${row.label}</div>
+              <div class="dials-row">${dials}</div>
+            </div>`;
+        }).join('');
+
+        curTheme.rows.forEach((row, ri) => {
+          row.opts.forEach((_, ci) => {
+            const canvas = document.getElementById(`dial-${ri}-${ci}`);
+            if (canvas) drawDial(canvas, (tc[ri] && tc[ri][ci]) || 0);
+          });
+        });
+      }
+
+      /* ── Colinha ── */
+      function renderCheat() {
+        const panel = document.getElementById('cheat-panel');
+        if (!curTheme) {
+          panel.innerHTML = '<div class="cheat-no-theme">Selecione um tema para ver a legenda das colunas</div>';
+          return;
+        }
+        panel.innerHTML = '<div class="cheat-grid">' +
+          curTheme.rows.map(row => {
+            const badges = row.opts.map((opt, i) =>
+              `<span class="cheat-badge"><span class="badge-num">${i + 1}</span><span class="badge-sep"> = </span>${opt}</span>`
+            ).join('');
+            return `<div class="cheat-row">
+              <span class="cheat-row-label">${row.label}</span>
+              <span class="cheat-opts">${badges}</span>
+            </div>`;
+          }).join('') +
+        '</div>';
+      }
+
+      function toggleCheat() {
+        const toggle = document.getElementById('cheat-toggle');
+        const panel  = document.getElementById('cheat-panel');
+        const isOpen = panel.classList.contains('open');
+        panel.classList.toggle('open', !isOpen);
+        toggle.classList.toggle('open', !isOpen);
+      }
+
+      /* ── Inicialização ── */
+      renderThemes();
     </script>
   </body>
 </html>
